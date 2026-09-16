@@ -1,22 +1,22 @@
 package com.mineify.network.packets;
 
 import com.mineify.Mineify;
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.codec.PacketCodecs;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
-public record SearchRequestPacket(String query) implements CustomPayload {
-    public static final CustomPayload.Id<SearchRequestPacket> ID =
-            new CustomPayload.Id<>(Identifier.of(Mineify.MOD_ID, "search_request"));
+public record SearchRequestPacket(String query) implements CustomPacketPayload {
+    public static final CustomPacketPayload.Type<SearchRequestPacket> ID =
+            new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath(Mineify.MOD_ID, "search_request"));
 
-    public static final PacketCodec<RegistryByteBuf, SearchRequestPacket> CODEC =
-            PacketCodecs.STRING.xmap(SearchRequestPacket::new, SearchRequestPacket::query)
+    public static final StreamCodec<RegistryFriendlyByteBuf, SearchRequestPacket> CODEC =
+            ByteBufCodecs.STRING_UTF8.map(SearchRequestPacket::new, SearchRequestPacket::query)
                     .cast();
 
     @Override
-    public Id<? extends CustomPayload> getId() {
+    public Type<? extends CustomPacketPayload> type() {
         return ID;
     }
 }

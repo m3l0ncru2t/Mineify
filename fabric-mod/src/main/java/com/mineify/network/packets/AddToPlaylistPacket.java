@@ -1,27 +1,28 @@
 package com.mineify.network.packets;
 
 import com.mineify.Mineify;
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
-public record AddToPlaylistPacket(String videoId, String title, String duration) implements CustomPayload {
-    public static final CustomPayload.Id<AddToPlaylistPacket> ID =
-            new CustomPayload.Id<>(Identifier.of(Mineify.MOD_ID, "add_to_playlist"));
+public record AddToPlaylistPacket(String videoId, String title, String duration, String thumbnail) implements CustomPacketPayload {
+    public static final CustomPacketPayload.Type<AddToPlaylistPacket> ID =
+            new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath(Mineify.MOD_ID, "add_to_playlist"));
 
-    public static final PacketCodec<RegistryByteBuf, AddToPlaylistPacket> CODEC =
-            PacketCodec.of(
-                    (value, buf) -> {
-                        buf.writeString(value.videoId);
-                        buf.writeString(value.title);
-                        buf.writeString(value.duration);
+    public static final StreamCodec<RegistryFriendlyByteBuf, AddToPlaylistPacket> CODEC =
+            StreamCodec.of(
+                    (buf, value) -> {
+                        buf.writeUtf(value.videoId);
+                        buf.writeUtf(value.title);
+                        buf.writeUtf(value.duration);
+                        buf.writeUtf(value.thumbnail);
                     },
-                    buf -> new AddToPlaylistPacket(buf.readString(), buf.readString(), buf.readString())
+                    buf -> new AddToPlaylistPacket(buf.readUtf(), buf.readUtf(), buf.readUtf(), buf.readUtf())
             );
 
     @Override
-    public Id<? extends CustomPayload> getId() {
+    public Type<? extends CustomPacketPayload> type() {
         return ID;
     }
 }

@@ -1,45 +1,49 @@
 package com.mineify.network.packets;
 
 import com.mineify.Mineify;
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public record SearchResultsPacket(List<Entry> results) implements CustomPayload {
-    public static final CustomPayload.Id<SearchResultsPacket> ID =
-            new CustomPayload.Id<>(Identifier.of(Mineify.MOD_ID, "search_results"));
+public record SearchResultsPacket(List<Entry> results, boolean append, boolean hasMore) implements CustomPacketPayload {
+    public static final CustomPacketPayload.Type<SearchResultsPacket> ID =
+            new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath(Mineify.MOD_ID, "search_results"));
 
-    public static final PacketCodec<RegistryByteBuf, SearchResultsPacket> CODEC =
-            PacketCodec.of(
-                    (value, buf) -> {
+    public static final StreamCodec<RegistryFriendlyByteBuf, SearchResultsPacket> CODEC =
+            StreamCodec.of(
+                    (buf, value) -> {
                         buf.writeVarInt(value.results.size());
                         for (Entry e : value.results) {
-                            buf.writeString(e.videoId);
-                            buf.writeString(e.title);
-                            buf.writeString(e.channel);
-                            buf.writeString(e.duration);
-                            buf.writeString(e.thumbnail);
+                            buf.writeUtf(e.videoId);
+                            buf.writeUtf(e.title);
+                            buf.writeUtf(e.channel);
+                            buf.writeUtf(e.duration);
+                            buf.writeUtf(e.thumbnail);
                         }
+                        buf.writeBoolean(value.append);
+                        buf.writeBoolean(value.hasMore);
                     },
                     buf -> {
                         int size = buf.readVarInt();
                         List<Entry> results = new ArrayList<>();
                         for (int i = 0; i < size; i++) {
                             results.add(new Entry(
-                                    buf.readString(), buf.readString(), buf.readString(),
-                                    buf.readString(), buf.readString()
+                                    buf.readUtf(), buf.readUtf(), buf.readUtf(),
+                                    buf.readUtf(), buf.readUtf()
                             ));
                         }
-                        return new SearchResultsPacket(results);
+                        boolean append = buf.readBoolean();
+                        boolean hasMore = buf.readBoolean();
+                        return new SearchResultsPacket(results, append, hasMore);
                     }
             );
 
     @Override
-    public Id<? extends CustomPayload> getId() {
+    public Type<? extends CustomPacketPayload> type() {
         return ID;
     }
 

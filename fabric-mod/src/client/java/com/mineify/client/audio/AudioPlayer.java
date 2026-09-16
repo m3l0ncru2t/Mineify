@@ -2,10 +2,8 @@ package com.mineify.client.audio;
 
 import com.mineify.MineifyClient;
 import com.mineify.network.packets.AudioChunkPacket;
-import com.mineify.network.packets.ReadyPacket;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 
 import javax.sound.sampled.*;
 import java.io.ByteArrayInputStream;
@@ -27,7 +25,6 @@ public class AudioPlayer {
     private volatile Clip currentClip;
     private volatile String currentTitle = "";
     private volatile boolean playing = false;
-    private volatile boolean awaitingResume = false;
     private volatile float volume = 1.0f;
 
     // Chunk buffers keyed by videoId
@@ -89,22 +86,12 @@ public class AudioPlayer {
             chunksReceived.remove(videoId);
             chunkArrivalTime.remove(videoId);
 
-            // startOffsetMs == -1 is a sentinel from the server meaning "late-join, await resume"
-            boolean isLateJoin = awaitingResume || packet.startOffsetMs() < 0;
-
-            if (isLateJoin) {
-                awaitingResume = true;
-                // Late-joiner: load clip but don't start, then signal ready
-                MineifyClient.LOGGER.info("All {} chunks received for '{}', loading clip (awaiting resume)",
-                        packet.totalChunks(), packet.title());
-                loadWithoutPlaying(audioBytes, packet.title());
-                ClientPlayNetworking.send(new ReadyPacket(videoId));
-            } else {
-                // Normal playback (first play of a track for all clients)
-                MineifyClient.LOGGER.info("All {} chunks received for '{}', starting playback (offset={}ms)",
-                        packet.totalChunks(), packet.title(), packet.startOffsetMs());
-                playFromBytes(audioBytes, packet.title(), packet.startOffsetMs());
-            }
+            // A late joiner gets a nonzero startOffsetMs projecting where the track
+            // will actually be by the time this finishes - playFromBytes seeks to it
+            // and starts immediately, catching up rather than waiting for anyone else.
+            MineifyClient.LOGGER.info("All {} chunks received for '{}', starting playback (offset={}ms)",
+                    packet.totalChunks(), packet.title(), packet.startOffsetMs());
+            playFromBytes(audioBytes, packet.title(), packet.startOffsetMs());
         }
     }
 
@@ -164,88 +151,7 @@ public class AudioPlayer {
         });
     }
 
-    /**
-     * Load audio into a clip but do not start playback.
-     * Used by late-joiners who must wait for a ResumePacket.
-     */
-    private void loadWithoutPlaying(byte[] audioBytes, String title) {
-        executor.submit(() -> {
-            stopInternal();
-            try {
-                ByteArrayInputStream bais = new ByteArrayInputStream(audioBytes);
-                AudioInputStream ais = AudioSystem.getAudioInputStream(bais);
-
-                AudioFormat baseFormat = ais.getFormat();
-                AudioFormat playFormat = new AudioFormat(
-                        AudioFormat.Encoding.PCM_SIGNED,
-                        baseFormat.getSampleRate(),
-                        16,
-                        baseFormat.getChannels(),
-                        baseFormat.getChannels() * 2,
-                        baseFormat.getSampleRate(),
-                        false
-                );
-
-                if (!baseFormat.matches(playFormat)) {
-                    ais = AudioSystem.getAudioInputStream(playFormat, ais);
-                }
-
-                Clip clip = AudioSystem.getClip();
-                clip.open(ais);
-
-                clip.addLineListener(event -> {
-                    if (event.getType() == LineEvent.Type.STOP && playing) {
-                        playing = false;
-                        currentTitle = "";
-                        MineifyClient.LOGGER.info("Audio playback finished");
-                    }
-                });
-
-                currentClip = clip;
-                currentTitle = title;
-                applyVolume(clip);
-                MineifyClient.LOGGER.info("Clip loaded (not started) for: {}", title);
-            } catch (Exception e) {
-                MineifyClient.LOGGER.error("Failed to load audio clip for: {}", title, e);
-            }
-        });
-    }
-
-    /**
-     * Pause the current clip at the given position. Called when a PausePacket arrives.
-     */
-    public void pause(long positionMs) {
-        awaitingResume = true;
-        executor.submit(() -> {
-            Clip clip = currentClip;
-            if (clip != null && clip.isOpen()) {
-                clip.stop();
-                playing = false;
-                MineifyClient.LOGGER.info("Paused at {}ms", positionMs);
-            }
-        });
-    }
-
-    /**
-     * Seek to the given position and start playback. Called when a ResumePacket arrives.
-     */
-    public void resume(long positionMs) {
-        awaitingResume = false;
-        executor.submit(() -> {
-            Clip clip = currentClip;
-            if (clip != null && clip.isOpen()) {
-                long clipLengthMs = clip.getMicrosecondLength() / 1000L;
-                long seekMs = Math.min(positionMs, clipLengthMs > 0 ? clipLengthMs - 1 : 0);
-                clip.setMicrosecondPosition(seekMs * 1000L);
-                playing = true;
-                clip.start();
-                MineifyClient.LOGGER.info("Resumed at {}ms", seekMs);
-            }
-        });
-    }
-
     public void stop() {
-        awaitingResume = false;
         chunkBuffer.clear();
         chunksReceived.clear();
         chunkArrivalTime.clear();
@@ -254,7 +160,6 @@ public class AudioPlayer {
 
     private void stopInternal() {
         playing = false;
-        awaitingResume = false;
         currentTitle = "";
         Clip clip = currentClip;
         if (clip != null) {

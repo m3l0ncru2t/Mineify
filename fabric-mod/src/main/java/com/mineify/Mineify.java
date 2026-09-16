@@ -7,6 +7,7 @@ import com.mineify.server.YouTubeService;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.fabricmc.loader.api.FabricLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,6 +21,13 @@ import java.nio.file.Path;
 public class Mineify implements ModInitializer {
     public static final String MOD_ID = "mineify";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
+
+    // Read once from fabric.mod.json rather than hardcoded, so it can't drift
+    // out of sync with the jar's actual declared version.
+    public static final String VERSION = FabricLoader.getInstance()
+            .getModContainer(MOD_ID)
+            .map(container -> container.getMetadata().getVersion().getFriendlyString())
+            .orElse("unknown");
 
     private static PlaylistManager playlistManager;
     private static YouTubeService youTubeService;

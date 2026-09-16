@@ -1,10 +1,10 @@
 package com.mineify.network.packets;
 
 import com.mineify.Mineify;
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
 /**
  * Carries a chunk of raw WAV audio data from the server to clients.
@@ -19,36 +19,40 @@ public record AudioChunkPacket(
         int totalChunks,
         long startOffsetMs,
         byte[] data
-) implements CustomPayload {
+) implements CustomPacketPayload {
 
-    public static final CustomPayload.Id<AudioChunkPacket> ID =
-            new CustomPayload.Id<>(Identifier.of(Mineify.MOD_ID, "audio_chunk"));
+    public static final CustomPacketPayload.Type<AudioChunkPacket> ID =
+            new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath(Mineify.MOD_ID, "audio_chunk"));
 
-    // Each chunk is at most 30 KB, safely under Short.MAX_VALUE (32 767)
+    // Each chunk is at most 30 KB, safely under Short.MAX_VALUE (32 767).
+    // Bumping this well past 32 KB was tried and made corrupted-frame
+    // disconnects on the live server reliable (every reconnect) instead of
+    // occasional, so something below the 1 MiB Fabric splitting threshold
+    // still chokes on much bigger single payloads. Leave this alone.
     public static final int CHUNK_SIZE = 30 * 1024;
 
-    public static final PacketCodec<RegistryByteBuf, AudioChunkPacket> CODEC =
-            PacketCodec.of(
-                    (value, buf) -> {
-                        buf.writeString(value.videoId);
-                        buf.writeString(value.title);
+    public static final StreamCodec<RegistryFriendlyByteBuf, AudioChunkPacket> CODEC =
+            StreamCodec.of(
+                    (buf, value) -> {
+                        buf.writeUtf(value.videoId);
+                        buf.writeUtf(value.title);
                         buf.writeInt(value.chunkIndex);
                         buf.writeInt(value.totalChunks);
                         buf.writeLong(value.startOffsetMs);
                         buf.writeByteArray(value.data);
                     },
                     buf -> new AudioChunkPacket(
-                            buf.readString(),
-                            buf.readString(),
+                            buf.readUtf(),
+                            buf.readUtf(),
                             buf.readInt(),
                             buf.readInt(),
                             buf.readLong(),
-                            buf.readByteArray(Short.MAX_VALUE)
+                            buf.readByteArray(CHUNK_SIZE)
                     )
             );
 
     @Override
-    public Id<? extends CustomPayload> getId() {
+    public Type<? extends CustomPacketPayload> type() {
         return ID;
     }
 }

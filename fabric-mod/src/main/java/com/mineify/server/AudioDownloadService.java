@@ -46,11 +46,29 @@ public class AudioDownloadService {
 
             Mineify.LOGGER.info("Mineify: Downloading audio for {}", videoId);
             try {
+                // Downmix to mono and downsample to 22.05 kHz: this mod streams the
+                // resulting WAV to every listener as raw bytes over Minecraft's packet
+                // protocol, so full 44.1 kHz stereo (tens of MB per song) saturates
+                // player connections badly enough to cause keep-alive timeout kicks.
+                // Cutting to mono/22050 shrinks that by ~4x with an acceptable quality
+                // trade-off for in-game background music.
+                // Also grab YouTube's lowest-bitrate audio-only stream rather than the
+                // best available - we downsample this hard regardless, so a smaller
+                // source doesn't cost any additional real quality, and it downloads
+                // (and then converts) faster.
+                // Points at a deno binary placed in the server's own working directory
+                // rather than relying on PATH, since the main server runs as a
+                // different OS user (pufferpanel) that wouldn't see a PATH change
+                // made for this one. Lets yt-dlp use its standard extraction path
+                // instead of the deprecated no-JS-runtime fallback.
                 ProcessBuilder pb = new ProcessBuilder(
                         "yt-dlp",
+                        "--js-runtimes", "deno:./deno",
+                        "-f", "worstaudio",
                         "-x",
                         "--audio-format", "wav",
                         "--audio-quality", "0",
+                        "--postprocessor-args", "ffmpeg:-ar 22050 -ac 1",
                         "-o", filePath.toString(),
                         "--no-playlist",
                         "https://www.youtube.com/watch?v=" + videoId

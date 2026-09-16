@@ -57,10 +57,10 @@ Everything runs inside the Minecraft server process — no companion service or 
 
 | | Requirement |
 |---|---|
-| Minecraft | 1.21.11 |
-| Fabric Loader | 0.18.x+ |
-| Fabric API | Latest for 1.21.11 |
-| Java | 21+ |
+| Minecraft | 26.3 |
+| Fabric Loader | 0.19.5+ |
+| Fabric API | Latest for 26.3 |
+| Java | 25+ |
 | Server only | [yt-dlp](https://github.com/yt-dlp/yt-dlp) on system PATH |
 | Server only | [ffmpeg](https://ffmpeg.org/) on system PATH |
 
@@ -70,9 +70,9 @@ Clients only need the mod JAR — no extra tools required.
 
 ### Server
 
-1. Install [Fabric Loader](https://fabricmc.net/use/installer/) for Minecraft 1.21.11.
+1. Install [Fabric Loader](https://fabricmc.net/use/installer/) for Minecraft 26.3.
 2. Install `yt-dlp` and `ffmpeg` on the server machine (see guide below).
-3. Place [Fabric API](https://modrinth.com/mod/fabric-api) and `mineify-1.3.0.jar` in the server's `mods/` folder.
+3. Place [Fabric API](https://modrinth.com/mod/fabric-api) and `mineify-1.4.0.jar` in the server's `mods/` folder.
 4. Start the server. Mineify initialises automatically.
 
 **Optional** — create `config/mineify.json` to customise behaviour:
@@ -85,8 +85,8 @@ Clients only need the mod JAR — no extra tools required.
 
 ### Client
 
-1. Install [Fabric Loader](https://fabricmc.net/use/installer/) for Minecraft 1.21.11.
-2. Place [Fabric API](https://modrinth.com/mod/fabric-api) and `mineify-1.3.0.jar` in `.minecraft/mods/`.
+1. Install [Fabric Loader](https://fabricmc.net/use/installer/) for Minecraft 26.3.
+2. Place [Fabric API](https://modrinth.com/mod/fabric-api) and `mineify-1.4.0.jar` in `.minecraft/mods/`.
 3. Launch Minecraft with the Fabric profile. No further setup needed.
 
 ## Installing yt-dlp and ffmpeg
